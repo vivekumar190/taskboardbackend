@@ -8,8 +8,7 @@ const socketIO = require("socket.io");
 const io = socketIO(server, {
   cors: { origin: "*" },
 });
-
-// Initialize board state with the same structure as frontend
+// this logic taken from frontend redux toolkit implmentation
 const boardState = {
   columns: [
     { id: "c1", title: "To Do", taskIds: [] },
@@ -20,7 +19,7 @@ const boardState = {
   loading: false
 };
 
-// Debug helper
+
 function logAndEmitState(socket, message) {
   console.log(message, JSON.stringify(boardState, null, 2));
   socket.emit("board-state", boardState);
@@ -29,11 +28,10 @@ function logAndEmitState(socket, message) {
 
 io.on("connection", function (socket) {
   console.log("New socket connection:", socket.id);
+//sending initial state to user if new user comes
 
-  // Send initial state to newly connected client
   socket.emit("board-state", boardState);
 
-  // Handle adding a new column
   socket.on("add-column", ({ title }) => {
     const id = `col-${Date.now()}`;
     const newColumn = { id, title, taskIds: [] };
@@ -41,7 +39,6 @@ io.on("connection", function (socket) {
     io.emit("board-state", boardState);
   });
 
-  // Handle adding a new task
   socket.on("add-task", ({ columnId, title }) => {
     const id = `task-${Date.now()}`;
     boardState.tasks[id] = { id, title };
@@ -76,17 +73,12 @@ io.on("connection", function (socket) {
 
   // Handle moving a task
   socket.on("move-task", ({ source, destination, taskId }) => {
-    const sourceColumn = boardState.columns.find(col => col.id === source.droppableId);
-    const destColumn = boardState.columns.find(col => col.id === destination.droppableId);
-    
-    if (sourceColumn && destColumn) {
-      sourceColumn.taskIds.splice(source.index, 1);
+    const sourceColumn = boardState.columns.find(column =>  column.id === source.droppableId);
+    const destColumn = boardState.columns.find(column =>column.id === destination.droppableId);   
+       sourceColumn.taskIds.splice(source.index, 1);
       destColumn.taskIds.splice(destination.index, 0, taskId);
       io.emit("board-state", boardState);
-    }
   });
-
-  // Handle disconnection
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });
