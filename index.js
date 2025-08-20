@@ -26,11 +26,35 @@ function logAndEmitState(socket, message) {
   io.emit("board-state", boardState);
 }
 
+// Store connected users and their pointer positions
+const connectedUsers = {};
+
 io.on("connection", function (socket) {
   console.log("New socket connection:", socket.id);
-//sending initial state to user if new user comes
-
+  
+  // Add new user with pointerxy to connected users
+  connectedUsers[socket.id] = {
+    id: socket.id,
+    pointer: { x: 0, y: 0 }
+  };
+  
+  // Emitted current users to all clients
+  io.emit("users-update", Object.values(connectedUsers));
+  
+  // Send initial board state to new client
   socket.emit("board-state", boardState);
+  
+  // Handle pointer movement
+  socket.on("pointer-move", ({ x, y }) => {
+    if (connectedUsers[socket.id]) {
+      connectedUsers[socket.id].pointer = { x, y };
+      // Broadcast pointer position to all other clients
+      socket.broadcast.emit("pointer-update", {
+        userId: socket.id,
+        pointer: { x, y }
+      });
+    }
+  });
 
   socket.on("add-column", ({ title }) => {
     const id = `col-${Date.now()}`;
@@ -81,6 +105,10 @@ io.on("connection", function (socket) {
   });
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
+    // Remove user from connected users
+    delete connectedUsers[socket.id];
+    // Notify other clients about user disconnection
+    io.emit("users-update", Object.values(connectedUsers));
   });
 });
 
